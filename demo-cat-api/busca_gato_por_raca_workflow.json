@@ -1,0 +1,104 @@
+{
+    "name": "busca_gato_por_raca_workflow",
+    "description": "Encontre um gato baseado na raça especificada ou liste possíveis raças e busque um gato baseado nesta lista.",
+    "version": 1,
+    "tasks": [
+        {
+            "name": "switch_main_flow",
+            "taskReferenceName": "switch_main_flow",
+            "inputParameters": {
+                "breedId": "${workflow.input.breedId}"
+            },
+            "type": "SWITCH",
+            "evaluatorType": "javascript",
+            "expression": "$.breedId ? 'true' : 'false'",
+            "defaultCase": [],
+            "decisionCases": {
+                "true": [
+                    {
+                        "name": "breed_id_from_input",
+                        "taskReferenceName": "breed_id_from_input",
+                        "type": "SET_VARIABLE",
+                        "inputParameters": {
+                             "breedId": "${workflow.input.breedId}"
+                        }
+            
+                    },
+                    {
+                        "name": "final_message_with_breedId",
+                        "taskReferenceName": "final_message_with_breedId",
+                        "type": "SET_VARIABLE",
+                        "inputParameters": {
+                             "finalMessage": "Raça especificada"
+                        }
+            
+                    }
+                ],
+                "false": [
+                    {
+                        "name": "get_breeds_cat",
+                        "taskReferenceName": "get_breeds_cat",
+                        "inputParameters": {
+                            "http_request": {
+                                "uri": "https://api.thecatapi.com/v1/breeds",
+                                "method": "GET",
+                                "connectionTimeOut": 30000
+                            }
+                        },
+                        "type": "HTTP"
+                    },
+                    {
+                        "name": "get_random_breed",
+                        "taskReferenceName": "get_random_breed",
+                        "type": "INLINE",
+                        "inputParameters": {
+                          "breeds": "${get_breeds_cat.output.response.body}",
+                          "evaluatorType": "javascript",
+                          "expression": "function GenerateRandomIndex() { var breedsLength = $.breeds.length; return {breedId: $.breeds[Math.floor(Math.random() * breedsLength)].id};} GenerateRandomIndex();"
+                        }
+                    },
+                    {
+                        "name": "breed_id_from_cat_api",
+                        "taskReferenceName": "breed_id_from_cat_api",
+                        "type": "SET_VARIABLE",
+                        "inputParameters": {
+                            "breedId": "${get_random_breed.output.result.breedId}"
+                        }
+            
+                    },
+                    {
+                        "name": "mensagem_opcao_raca_aleatoria",
+                        "taskReferenceName": "mensagem_opcao_raca_aleatoria",
+                        "type": "SET_VARIABLE",
+                        "inputParameters": {
+                             "finalMessage": "Raça escolhida aleatóriamente"
+                        }
+            
+                    }
+                ]
+            }
+        },
+        {
+            "name": "get_image_cat",
+            "taskReferenceName": "get_image_cat",
+            "inputParameters": {
+                "http_request": {
+                    "uri": "https://api.thecatapi.com/v1/images/search?breed_ids=${workflow.variables.breedId}",
+                    "method": "GET",
+                    "connectionTimeOut": 30000
+                }
+            },
+            "type": "HTTP"
+        }
+    ],
+    "inputParameters": ["breedId"],
+    "outputParameters": {
+        "imagem": "${get_image_cat.output.response.body[0].url}",
+        "opcao": "${workflow.variables.finalMessage}"
+    },
+    "schemaVersion": 2,
+    "restartable": true,
+    "workflowStatusListenerEnabled": false,
+    "ownerEmail": "exemplo@email.com.br",
+    "timeoutPolicy": "ALERT_ONLY"
+}
